@@ -1,4 +1,5 @@
 use crate::app::App;
+use std::env;
 
 pub mod app;
 pub mod event;
@@ -7,7 +8,10 @@ pub mod ui;
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     let terminal = ratatui::init();
-    let result = App::new().run(terminal);
+
+    let args: Vec<String> = env::args().collect();
+
+    let result = App::new(args).run(terminal);
     ratatui::restore();
     result
 }

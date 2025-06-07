@@ -3,6 +3,7 @@ use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
 };
+use std::io;
 
 /// Application.
 #[derive(Debug)]
@@ -11,6 +12,8 @@ pub struct App {
     pub running: bool,
     /// Counter.
     pub counter: u8,
+    pub cursor: u8,
+    pub buffer: String,
     /// Event handler.
     pub events: EventHandler,
 }
@@ -20,6 +23,8 @@ impl Default for App {
         Self {
             running: true,
             counter: 0,
+            cursor: 0,
+            buffer: String::new(),
             events: EventHandler::new(),
         }
     }
@@ -27,8 +32,10 @@ impl Default for App {
 
 impl App {
     /// Constructs a new instance of [`App`].
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(args: Vec<String>) -> Self {
+        let mut s = Self::default();
+        s.buffer = std::fs::read_to_string(args[1].clone()).expect("couldnt read file");
+        s
     }
 
     /// Run the application's main loop.
@@ -51,6 +58,8 @@ impl App {
                 AppEvent::Increment => self.increment_counter(),
                 AppEvent::Decrement => self.decrement_counter(),
                 AppEvent::Quit => self.quit(),
+                AppEvent::CursorDown => self.move_cursor_down(),
+                AppEvent::CursorUp => self.move_cursor_up(),
             },
         }
         Ok(())
@@ -65,7 +74,8 @@ impl App {
             }
             KeyCode::Right => self.events.send(AppEvent::Increment),
             KeyCode::Left => self.events.send(AppEvent::Decrement),
-            // Other handlers you could add here.
+            KeyCode::Down => self.events.send(AppEvent::CursorDown),
+            KeyCode::Up => self.events.send(AppEvent::CursorUp),
             _ => {}
         }
         Ok(())
@@ -88,5 +98,12 @@ impl App {
 
     pub fn decrement_counter(&mut self) {
         self.counter = self.counter.saturating_sub(1);
+    }
+
+    pub fn move_cursor_down(&mut self) {
+        self.cursor = self.cursor.saturating_add(1);
+    }
+    pub fn move_cursor_up(&mut self) {
+        self.cursor = self.cursor.saturating_sub(1);
     }
 }
