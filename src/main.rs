@@ -10,7 +10,11 @@ fn main() -> color_eyre::Result<()> {
 
     let args: Vec<String> = env::args().collect();
 
-    let result = App::new(args).run(terminal);
+    let buffer = std::fs::read_to_string(args[1].clone()).expect("couldnt read file");
+
+    let result = App::new(&buffer).run(terminal);
+    
     ratatui::restore();
+    
     result
 }

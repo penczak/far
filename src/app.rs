@@ -1,53 +1,89 @@
 use ratatui::{
-    DefaultTerminal,
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers}, layout::Size, style::Stylize, text::{Line, Span}, DefaultTerminal
 };
-use std::io;
 
 /// Application.
-#[derive(Debug)]
-pub struct App {
+pub struct App<'a> {
     /// Is the application running?
     pub running: bool,
-    /// Counter.
-    pub counter: u8,
     // Current position in buffer
     pub cursor: u8,
-    // File being scrolled
-    pub buffer: String,
     // Currently visable window
-    pub view: String,
+    pub hits: Vec<Hit<'a>>,
+    pub terminal_size: Size,
 }
 
-impl Default for App {
-    fn default() -> Self {
+pub struct Hit<'a> {
+    pub state: FarState,
+    pub display: Line<'a>,
+    pub content: &'a str,
+    pub line_number: u8,
+}
+
+pub enum FarState {
+    Undecided,
+    Take,
+    Skip,
+}
+
+impl<'a> App<'a> {
+    /// Constructs a new instance of [`App`].
+    pub fn new(buffer: &'a str) -> Self {
+        let mut hits: Vec<Hit> = Vec::new();
+        let mut lines = buffer.lines();
+
+        for i in 0..lines.clone().count() {
+            let line: &str = lines.next().unwrap();
+            let spans: Vec<Span> = line.chars().map(|char| {
+                if char.eq_ignore_ascii_case(&'o') {
+                    char.to_string().black().on_white()
+                } else {
+                    char.to_string().white().on_black()
+                }
+            }).collect();
+
+            hits.push(
+                Hit {
+                    state: FarState::Undecided,
+                    content: line,
+                    display: Line::from(spans),
+                    line_number: i.try_into().unwrap(),
+                }
+            )
+        }
+        // let hits = buffer.lines()
+        //     .map(|ix, line| {
+        //         let spans: Vec<Span> = line.chars().map(|char| {
+        //             if char.eq_ignore_ascii_case(&'o') {
+        //                 char.to_string().black().on_white()
+        //             } else {
+        //                 char.to_string().white().on_black()
+        //             }
+        //         }).collect();
+
+        //         Hit {
+        //             state: FarState::Undecided,
+        //             content: line,
+        //             display: Line::from(spans),
+        //             line_number: 
+        //         }
+        //     })
+        //     .collect();
         Self {
             running: true,
-            counter: 0,
             cursor: 0,
-            buffer: String::new(),
-            view: String::new(),
+            hits: hits,
+            terminal_size: Size::ZERO
         }
-    }
-}
-
-impl App {
-    /// Constructs a new instance of [`App`].
-    pub fn new(args: Vec<String>) -> Self {
-        let mut s = Self::default();
-        s.buffer = std::fs::read_to_string(args[1].clone()).expect("couldnt read file");
-        s
     }
 
     /// Run the application's main loop.
     pub fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
-        let height = terminal.size().unwrap().height;
-        let width = terminal.size().unwrap().width;
+        self.terminal_size = terminal.size().unwrap();
 
         while self.running {
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
             self.handle_events()?;
-            self.recalculate_view(height, width);
         }
         Ok(())
     }
@@ -92,30 +128,5 @@ impl App {
     }
     pub fn move_cursor_up(&mut self) {
         self.cursor = self.cursor.saturating_sub(1);
-    }
-    
-    fn recalculate_view(&mut self, height: u16, width: u16) {
-
-        let height: u8 = height.try_into().unwrap();
-        let top_white_space: u8 = (height / 2).saturating_sub(self.cursor * 2);
-
-        self.view = String::new();
-
-        for _ in 0..top_white_space {
-            self.view.push('\n');
-        }
-        
-        let lines_to_skip: u8 = if top_white_space > 0 { 0 } else { self.cursor.into() };
-
-        let content: String = self.buffer.lines()
-            .skip(lines_to_skip.into())
-            .take(99)
-            .fold(String::new(), |mut acc, line| {
-                acc.push_str(line);
-                acc.push('\n');
-                acc
-            });
-
-        self.view.push_str(&content);
     }
 }
