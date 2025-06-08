@@ -1,0 +1,32 @@
+find and replace
+
+fnr or far
+
+(a set of?)
+pattern(s) to search for
+text to replace matches with 
+
+to start a session:
+-search space directory
+-patterns (above) 
+-optionally a pattern to filter files 
+
+display list of hits 
+-shows whole line with match highlighted 
+-[t]ake or [s]kip the hit (and move cursor forward)
+-show current line at center with previous decisions above and upcoming below
+-button to [e]xpand the context 
+    -show 5 lines above and below the current line in its file 
+    -e to collapse the expansion and go back to normal mode
+    -up and down will scroll in file while in expanded mode 
+-up and down (u and d or arrow keys) will scroll and move the cursor up and down the list of hits 
+    -or j and k with u and d for half screen scroll
+    -if going with vim bindings... h for take and l for skip? eh, i think t and s is better
+-status bar always at bottom with cursor pos & total number of hits (13 of 254), # taken, # skipped, # undecided
+
+-vim style number+command combos 
+    -15t - take the next 15 hits
+    -10s - skip the next 10 hits
+    -support for movement commands too, j,k,u,d,⬆️,⬇️
+
+-if you scroll past some hits and leave then undecided, have a command to toggle to sort display hits with all undecided at the bottom (and toggle back to original order) 
