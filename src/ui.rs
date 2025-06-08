@@ -1,5 +1,5 @@
 use ratatui::{
-    buffer::Buffer, layout::{Alignment, Rect}, style::{Color, Stylize}, text::Line, widgets::{Block, BorderType, Paragraph, Widget}
+    buffer::Buffer, layout::{Alignment, Rect}, style::{Color, Style, Stylize}, text::{Line, Span}, widgets::{Block, BorderType, Paragraph, Widget}
 };
 
 use crate::app::App;
@@ -38,12 +38,18 @@ impl Widget for &App<'_> {
 
         lines_to_use
             .for_each(|h| {
-                let mut line: Line = h.display.clone();
+                let spans: Vec<Span> = h.spans.clone();
+                // let mut line: Line = h.display.clone();
                 if h.line_number == self.cursor {
-                    line = line.underlined();
-                    // line = Line::from("fff");
+                    let line = Line::from(
+                        spans.iter()
+                            .map(|s| { s.clone().red() })
+                            .collect::<Vec<Span>>()
+                    );
+                    paragraph_lines.push(line);
+                } else {
+                    paragraph_lines.push(h.display.clone());
                 }
-                paragraph_lines.push(line);
             });
 
         // let mut lines_to_use = self.hits.iter()

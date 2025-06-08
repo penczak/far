@@ -16,6 +16,7 @@ pub struct App<'a> {
 pub struct Hit<'a> {
     pub state: FarState,
     pub display: Line<'a>,
+    pub spans: Vec<Span<'a>>,
     pub content: &'a str,
     pub line_number: u8,
 }
@@ -46,7 +47,8 @@ impl<'a> App<'a> {
                 Hit {
                     state: FarState::Undecided,
                     content: line,
-                    display: Line::from(spans),
+                    display: Line::from(spans.clone()),
+                    spans: spans,
                     line_number: i.try_into().unwrap(),
                 }
             )
