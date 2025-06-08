@@ -18,13 +18,37 @@ pub struct Hit<'a> {
     pub display: Line<'a>,
     pub spans: Vec<Span<'a>>,
     pub content: &'a str,
+    pub file_name: String,
     pub line_number: u8,
+}
+
+impl Clone for Hit<'_> {
+    fn clone(&self) -> Self {
+        Self {
+            state: self.state.clone(),
+            display: self.display.clone(),
+            spans: self.spans.clone(),
+            content: self.content,
+            file_name: self.file_name.clone(),
+            line_number: self.line_number.clone(),
+        }
+    }
 }
 
 pub enum FarState {
     Undecided,
     Take,
     Skip,
+}
+
+impl Clone for FarState {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Undecided => Self::Undecided,
+            Self::Take => Self::Take,
+            Self::Skip => Self::Skip,
+        }
+    }
 }
 
 impl<'a> App<'a> {
@@ -50,27 +74,10 @@ impl<'a> App<'a> {
                     display: Line::from(spans.clone()),
                     spans: spans,
                     line_number: i.try_into().unwrap(),
+                    file_name: "rust_book.txt".to_string(),
                 }
             )
         }
-        // let hits = buffer.lines()
-        //     .map(|ix, line| {
-        //         let spans: Vec<Span> = line.chars().map(|char| {
-        //             if char.eq_ignore_ascii_case(&'o') {
-        //                 char.to_string().black().on_white()
-        //             } else {
-        //                 char.to_string().white().on_black()
-        //             }
-        //         }).collect();
-
-        //         Hit {
-        //             state: FarState::Undecided,
-        //             content: line,
-        //             display: Line::from(spans),
-        //             line_number: 
-        //         }
-        //     })
-        //     .collect();
         Self {
             running: true,
             cursor: 0,
@@ -109,6 +116,8 @@ impl<'a> App<'a> {
             }
             KeyCode::Down => self.move_cursor_down(),
             KeyCode::Up => self.move_cursor_up(),
+            KeyCode::Char('t') => self.take_current_hit(),
+            KeyCode::Char('s') => self.skip_current_hit(),
             _ => {}
         }
         Ok(())
@@ -128,7 +137,24 @@ impl<'a> App<'a> {
     pub fn move_cursor_down(&mut self) {
         self.cursor = self.cursor.saturating_add(1);
     }
+    
     pub fn move_cursor_up(&mut self) {
         self.cursor = self.cursor.saturating_sub(1);
+    }
+    
+    fn take_current_hit(&mut self) {
+        let hit = self.get_current_hit();
+        hit.state = FarState::Take;
+        self.move_cursor_down();
+    }
+    
+    fn skip_current_hit(&mut self) {
+        let hit = self.get_current_hit();
+        hit.state = FarState::Skip;
+        self.move_cursor_down();
+    }
+
+    fn get_current_hit(&mut self) -> &mut Hit<'a> {
+        self.hits.get_mut(self.cursor as usize).unwrap()
     }
 }

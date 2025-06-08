@@ -13,6 +13,7 @@ to start a session:
 
 display list of hits 
 -shows whole line with match highlighted 
+    -(how to deal with multiple matches in one line?)
 -[t]ake or [s]kip the hit (and move cursor forward)
 -show current line at center with previous decisions above and upcoming below
 -button to [e]xpand the context 
@@ -30,3 +31,5 @@ display list of hits
     -support for movement commands too, j,k,u,d,⬆️,⬇️
 
 -if you scroll past some hits and leave then undecided, have a command to toggle to sort display hits with all undecided at the bottom (and toggle back to original order) 
+
+-beforing applying any changes, make sure files havent been written to since starting session

@@ -1,8 +1,24 @@
 use ratatui::{
-    buffer::Buffer, layout::{Alignment, Rect}, style::{Color, Style, Stylize}, text::{Line, Span}, widgets::{Block, BorderType, Paragraph, Widget}
+    buffer::Buffer, layout::{Alignment, Rect}, style::Stylize, text::{Line, Span}, widgets::{Block, BorderType, Paragraph, Widget, Wrap}
 };
 
-use crate::app::App;
+use crate::app::{App, Hit};
+
+fn prepend_file_name<'a>(hit: Hit<'a>, spans: Vec<Span<'a>>) -> Vec<Span<'a>> {
+    let mut spans = spans.clone();
+    
+    spans.insert(0, Span::from(hit.file_name.clone()).cyan());
+    spans.insert(1, Span::from(" "));
+    
+    let indicator = match hit.state {
+        crate::app::FarState::Undecided => Span::from("( )"),
+        crate::app::FarState::Take => Span::from("(t)").green(),
+        crate::app::FarState::Skip => Span::from("(s)").red(),
+    };
+
+    spans.insert(2, Span::from(indicator));
+    spans
+}
 
 impl Widget for &App<'_> {
     // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
@@ -12,7 +28,7 @@ impl Widget for &App<'_> {
         // let width: u8 = self.terminal_size.width.try_into().unwrap();
 
         let block = Block::bordered()
-            .title(" far ")
+            .title(" Find And Replace ")
             .title_alignment(Alignment::Center)
             .title_bottom(format!(
                 "Cursor: {}",
@@ -20,13 +36,10 @@ impl Widget for &App<'_> {
             ))
             .border_type(BorderType::Plain);
 
-
-        // let mut paragraph_text = String::new();
         let mut paragraph_lines: Vec<Line> = Vec::new();
 
         let top_white_space: u8 = (height / 2).saturating_sub(self.cursor);
         for _ in 0..top_white_space {
-            // paragraph_text.push('\n');
             paragraph_lines.push(Line::from("\n"));
         }
         
@@ -38,18 +51,20 @@ impl Widget for &App<'_> {
 
         lines_to_use
             .for_each(|h| {
-                let spans: Vec<Span> = h.spans.clone();
-                // let mut line: Line = h.display.clone();
-                if h.line_number == self.cursor {
-                    let line = Line::from(
-                        spans.iter()
-                            .map(|s| { s.clone().red() })
-                            .collect::<Vec<Span>>()
-                    );
-                    paragraph_lines.push(line);
+                // let mut spans: Vec<Span> = h.spans.clone();
+                let mut spans = prepend_file_name(h.clone(), h.spans.clone());
+
+                let mut line;
+
+                if h.line_number != self.cursor {
+                    spans.insert(3, Span::from(" "));
+                    line = Line::from(spans);
+                    line = line.dim();
                 } else {
-                    paragraph_lines.push(h.display.clone());
+                    spans.insert(3, Span::from(">"));
+                    line = Line::from(spans);
                 }
+                paragraph_lines.push(line);
             });
 
         // let mut lines_to_use = self.hits.iter()
@@ -69,6 +84,9 @@ impl Widget for &App<'_> {
         // let paragraph = Paragraph::new(paragraph_text)
         let paragraph = Paragraph::new(paragraph_lines)
             .block(block)
+            .wrap(Wrap {
+                trim: false
+            })
             // .fg(Color::Cyan)
             // .bg(Color::Black)
             // .centered()
