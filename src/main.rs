@@ -2,7 +2,6 @@ use crate::app::App;
 use std::env;
 
 pub mod app;
-pub mod event;
 pub mod ui;
 
 fn main() -> color_eyre::Result<()> {

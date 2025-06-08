@@ -1,4 +1,3 @@
-use crate::event::{AppEvent, Event, EventHandler};
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
@@ -18,8 +17,6 @@ pub struct App {
     pub buffer: String,
     // Currently visable window
     pub view: String,
-    /// Event handler.
-    pub events: EventHandler,
 }
 
 impl Default for App {
@@ -30,7 +27,6 @@ impl Default for App {
             cursor: 0,
             buffer: String::new(),
             view: String::new(),
-            events: EventHandler::new(),
         }
     }
 }
@@ -57,34 +53,24 @@ impl App {
     }
 
     pub fn handle_events(&mut self) -> color_eyre::Result<()> {
-        match self.events.next()? {
-            Event::Tick => self.tick(),
-            Event::Crossterm(event) => match event {
-                crossterm::event::Event::Key(key_event) => self.handle_key_event(key_event)?,
-                _ => {}
-            },
-            Event::App(app_event) => match app_event {
-                AppEvent::Increment => self.increment_counter(),
-                AppEvent::Decrement => self.decrement_counter(),
-                AppEvent::Quit => self.quit(),
-                AppEvent::CursorDown => self.move_cursor_down(),
-                AppEvent::CursorUp => self.move_cursor_up(),
-            },
+        match crossterm::event::read()? {
+            // it's important to check KeyEventKind::Press to avoid handling key release events
+            crossterm::event::Event::Key(key)
+                if key.kind == crossterm::event::KeyEventKind::Press => { self.on_key_event(key); }
+            _ => {}
         }
         Ok(())
     }
 
     /// Handles the key events and updates the state of [`App`].
-    pub fn handle_key_event(&mut self, key_event: KeyEvent) -> color_eyre::Result<()> {
+    pub fn on_key_event(&mut self, key_event: KeyEvent) -> color_eyre::Result<()> {
         match key_event.code {
-            KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
+            KeyCode::Esc | KeyCode::Char('q') => self.quit(),
             KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
-                self.events.send(AppEvent::Quit)
+                self.quit();
             }
-            KeyCode::Right => self.events.send(AppEvent::Increment),
-            KeyCode::Left => self.events.send(AppEvent::Decrement),
-            KeyCode::Down => self.events.send(AppEvent::CursorDown),
-            KeyCode::Up => self.events.send(AppEvent::CursorUp),
+            KeyCode::Down => self.move_cursor_down(),
+            KeyCode::Up => self.move_cursor_up(),
             _ => {}
         }
         Ok(())
@@ -99,14 +85,6 @@ impl App {
     /// Set running to false to quit the application.
     pub fn quit(&mut self) {
         self.running = false;
-    }
-
-    pub fn increment_counter(&mut self) {
-        self.counter = self.counter.saturating_add(1);
-    }
-
-    pub fn decrement_counter(&mut self) {
-        self.counter = self.counter.saturating_sub(1);
     }
 
     pub fn move_cursor_down(&mut self) {
@@ -131,7 +109,7 @@ impl App {
 
         let content: String = self.buffer.lines()
             .skip(lines_to_skip.into())
-            .take(999)
+            .take(99)
             .fold(String::new(), |mut acc, line| {
                 acc.push_str(line);
                 acc.push('\n');
