@@ -12,8 +12,12 @@ pub struct App {
     pub running: bool,
     /// Counter.
     pub counter: u8,
+    // Current position in buffer
     pub cursor: u8,
+    // File being scrolled
     pub buffer: String,
+    // Currently visable window
+    pub view: String,
     /// Event handler.
     pub events: EventHandler,
 }
@@ -25,6 +29,7 @@ impl Default for App {
             counter: 0,
             cursor: 0,
             buffer: String::new(),
+            view: String::new(),
             events: EventHandler::new(),
         }
     }
@@ -40,9 +45,13 @@ impl App {
 
     /// Run the application's main loop.
     pub fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
+        let height = terminal.size().unwrap().height;
+        let width = terminal.size().unwrap().width;
+
         while self.running {
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
             self.handle_events()?;
+            self.recalculate_view(height, width);
         }
         Ok(())
     }
@@ -105,5 +114,30 @@ impl App {
     }
     pub fn move_cursor_up(&mut self) {
         self.cursor = self.cursor.saturating_sub(1);
+    }
+    
+    fn recalculate_view(&mut self, height: u16, width: u16) {
+
+        let height: u8 = height.try_into().unwrap();
+        let top_white_space: u8 = (height / 2).saturating_sub(self.cursor * 2);
+
+        self.view = String::new();
+
+        for _ in 0..top_white_space {
+            self.view.push('\n');
+        }
+        
+        let lines_to_skip: u8 = if top_white_space > 0 { 0 } else { self.cursor.into() };
+
+        let content: String = self.buffer.lines()
+            .skip(lines_to_skip.into())
+            .take(999)
+            .fold(String::new(), |mut acc, line| {
+                acc.push_str(line);
+                acc.push('\n');
+                acc
+            });
+
+        self.view.push_str(&content);
     }
 }
