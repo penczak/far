@@ -4,11 +4,11 @@ use ratatui::{
 
 use crate::app::{App, Hit};
 
-fn prepend_file_name<'a>(hit: Hit<'a>, spans: Vec<Span<'a>>) -> Vec<Span<'a>> {
-    let mut spans = spans.clone();
-    
-    spans.insert(0, Span::from(hit.file_name.clone()).cyan());
-    spans.insert(1, Span::from(" "));
+fn format_hit_to_spans<'a>(hit: &'a Hit) -> Vec<Span<'a>> {
+    let mut spans: Vec<Span> = Vec::new();
+    let mut i = 0;
+    spans.insert(i, Span::from(hit.file_name.clone()).cyan()); i += 1;
+    spans.insert(i, Span::from(" ")); i += 1;
     
     let indicator = match hit.state {
         crate::app::FarState::Undecided => Span::from("( )"),
@@ -16,11 +16,11 @@ fn prepend_file_name<'a>(hit: Hit<'a>, spans: Vec<Span<'a>>) -> Vec<Span<'a>> {
         crate::app::FarState::Skip => Span::from("(s)").red(),
     };
 
-    spans.insert(2, Span::from(indicator));
+    spans.insert(i, Span::from(indicator)); i += 1;
     spans
 }
 
-impl Widget for &App<'_> {
+impl Widget for &App {
     // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
     // - https://github.com/ratatui/ratatui/tree/master/examples
     fn render(self, area: Rect, buf: &mut Buffer) {
@@ -52,7 +52,7 @@ impl Widget for &App<'_> {
         lines_to_use
             .for_each(|h| {
                 // let mut spans: Vec<Span> = h.spans.clone();
-                let mut spans = prepend_file_name(h.clone(), h.spans.clone());
+                let mut spans = format_hit_to_spans(h);
 
                 let mut line;
 

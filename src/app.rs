@@ -4,30 +4,30 @@ use ratatui::{
 use regex::Regex;
 use walkdir::WalkDir;
 
-pub struct App<'a> {
+pub struct App {
     pub running: bool,
     pub cursor: u8,
-    pub hits: Vec<Hit<'a>>,
+    pub hits: Vec<Hit>,
     pub terminal_size: Size,
 }
 
-pub struct Hit<'a> {
+pub struct Hit {
+    pub index: u8,
     pub state: FarState,
-    pub spans: Vec<Span<'a>>,
-    pub content: String,
+
+    pub full_line: String,
+    pub line_before_match: String,
+    pub matched_text: String,
+    pub line_after_match: String,
+
     pub file_name: String,
     pub line_number: u8,
+
 }
 
-impl Clone for Hit<'_> {
+impl Clone for Hit {
     fn clone(&self) -> Self {
-        Self {
-            state: self.state.clone(),
-            spans: self.spans.clone(),
-            content: self.content.clone(),
-            file_name: self.file_name.clone(),
-            line_number: self.line_number.clone(),
-        }
+        Self { index: self.index.clone(), state: self.state.clone(), full_line: self.full_line.clone(), line_before_match: self.line_before_match.clone(), matched_text: self.matched_text.clone(), line_after_match: self.line_after_match.clone(), file_name: self.file_name.clone(), line_number: self.line_number.clone() }
     }
 }
 
@@ -53,7 +53,7 @@ pub struct InputPattern {
     pub replace: String,
 }
 
-impl<'a> App<'a> {
+impl App {
     /// Constructs a new instance of [`App`].
     pub fn new(args: Vec<String>) -> Self {
         let mut hits: Vec<Hit> = Vec::new();
@@ -111,17 +111,15 @@ impl<'a> App<'a> {
 
                 for re_match in regex.find_iter(line) {
                     // println!("match: {}, {}", re_match.start(), re_match.end());
-                    let mut spans: Vec<Span> = Vec::new();
-                    spans.push(Span::raw(line[..re_match.start()].to_string()).red());
-                    spans.push(Span::raw(line[re_match.start()..re_match.end()].to_string()).green());
-                    spans.push(Span::raw(line[re_match.end()..].to_string()).blue());
-
                     hits.push(Hit {
                             state: FarState::Undecided,
-                            content: line.to_string(),
-                            spans,
+                            full_line: line.to_string(),
+                            line_before_match: line[..re_match.start()].to_string(),
+                            matched_text: line[re_match.start()..re_match.end()].to_string(),
+                            line_after_match: line[re_match.end()..].to_string(),
                             line_number: i.try_into().unwrap(),
                             file_name: file_path.clone(),
+                            index: hits.len().try_into().unwrap(),
                         }
                     )
                 }
@@ -203,7 +201,7 @@ impl<'a> App<'a> {
         self.move_cursor_down();
     }
 
-    fn get_current_hit(&mut self) -> &mut Hit<'a> {
+    fn get_current_hit(&mut self) -> &mut Hit {
         self.hits.get_mut(self.cursor as usize).unwrap()
     }
 }
