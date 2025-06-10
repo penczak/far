@@ -13,8 +13,9 @@ to start a session:
 
 display list of hits 
 -shows whole line with match highlighted 
-    -(how to deal with multiple matches in one line?)
+    -(how to deal with multiple matches in one line? they will become multiple hits)
 -[t]ake or [s]kip the hit (and move cursor forward)
+    -replace match in display with value to be replaced when taken (and in green)
 -show current line at center with previous decisions above and upcoming below
 -button to [e]xpand the context 
     -show 5 lines above and below the current line in its file 

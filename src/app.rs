@@ -1,5 +1,5 @@
 use ratatui::{
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers}, layout::Size, style::Stylize, symbols::line, text::{Line, Span}, DefaultTerminal
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers}, layout::Size, DefaultTerminal
 };
 use regex::Regex;
 use walkdir::WalkDir;
@@ -8,7 +8,22 @@ pub struct App {
     pub running: bool,
     pub cursor: usize,
     pub hits: Vec<Hit>,
+    pub files: Vec<FarFile>,
     pub terminal_size: Size,
+    pub expansion: Option<Expansion>,
+}
+
+pub struct Expansion {
+    pub file_name: String,
+    pub relative_file_name: String,
+    pub content: String,
+    pub line_number: usize,
+}
+
+pub struct FarFile {
+    pub file_name: String,
+    pub relative_file_name: String,
+    pub content: String,
 }
 
 pub struct Hit {
@@ -21,13 +36,14 @@ pub struct Hit {
     pub line_after_match: String,
 
     pub file_name: String,
+    pub relative_file_name: String,
     pub line_number: usize,
-
+    pub input_pattern: InputPattern,
 }
 
 impl Clone for Hit {
     fn clone(&self) -> Self {
-        Self { index: self.index.clone(), state: self.state.clone(), full_line: self.full_line.clone(), line_before_match: self.line_before_match.clone(), matched_text: self.matched_text.clone(), line_after_match: self.line_after_match.clone(), file_name: self.file_name.clone(), line_number: self.line_number.clone() }
+        Self { index: self.index.clone(), state: self.state.clone(), full_line: self.full_line.clone(), line_before_match: self.line_before_match.clone(), matched_text: self.matched_text.clone(), line_after_match: self.line_after_match.clone(), file_name: self.file_name.clone(), relative_file_name: self.relative_file_name.clone(), line_number: self.line_number.clone(), input_pattern: self.input_pattern.clone() }
     }
 }
 
@@ -48,19 +64,28 @@ impl Clone for FarState {
 }
 
 pub struct InputPattern {
-    pub key: usize,
     pub find_pattern: String,
     pub replace: String,
+}
+
+impl InputPattern {
+    pub fn new(find_pattern: String, replace: String) -> Self {
+        Self { find_pattern, replace }
+    }
+}
+
+impl Clone for InputPattern {
+    fn clone(&self) -> Self {
+        Self { find_pattern: self.find_pattern.clone(), replace: self.replace.clone() }
+    }
 }
 
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new(args: Vec<String>) -> Self {
-        let mut hits: Vec<Hit> = Vec::new();
 
         let mut input_patterns: Vec<InputPattern> = Vec::new();
 
-        let mut key = 0;
         let mut args_iter = args.iter().skip(1); // skip executable name
         while let Some(arg) = args_iter.next() {
             let parts: Vec<&str> = arg.split(':').collect();
@@ -69,12 +94,12 @@ impl App {
                 // return error
             }
 
-            input_patterns.push(InputPattern {
-                key: key,
-                find_pattern: parts[0].to_string(),
-                replace: parts[1].to_string(),
-            });
-            key = key + 1;
+            input_patterns.push(
+                InputPattern::new(
+                    parts[0].to_string(),
+                    parts[1].to_string()
+                )
+            );
         }
 
         // get every file (r) in directory
@@ -88,8 +113,9 @@ impl App {
                 files_to_check.push(entry_path.to_string());
             }
         }
-
-        let regex = Regex::new(r"o").unwrap();
+        
+        let mut hits: Vec<Hit> = Vec::new();
+        let mut files: Vec<FarFile> = Vec::new();
 
         // let mut results = vec![];
         for file_path in files_to_check {
@@ -101,6 +127,12 @@ impl App {
             let content = content.unwrap();
             // println!("CONTENT: {}", content);
 
+            files.push(FarFile {
+                file_name: file_path.clone(),
+                relative_file_name: file_path.replace(&root.to_str().unwrap(), ""),
+                content: content.clone(),
+            });
+
             for (i, line) in content.lines().enumerate() {
                 let line = line.trim();
                 if line.is_empty() {
@@ -108,20 +140,26 @@ impl App {
                 }
 
                 // println!("L: {line}");
+                for pattern in input_patterns.iter() {
+                    let regex = Regex::new(&pattern.find_pattern).unwrap();
+                    for re_match in regex.find_iter(line) {
+                        // println!("match: {}, {}", re_match.start(), re_match.end());
+                        hits.push(Hit {
+                                state: FarState::Undecided,
+                                full_line: line.to_string(),
+                                line_before_match: line[..re_match.start()].to_string(),
+                                matched_text: line[re_match.start()..re_match.end()].to_string(),
+                                line_after_match: line[re_match.end()..].to_string(),
 
-                for re_match in regex.find_iter(line) {
-                    // println!("match: {}, {}", re_match.start(), re_match.end());
-                    hits.push(Hit {
-                            state: FarState::Undecided,
-                            full_line: line.to_string(),
-                            line_before_match: line[..re_match.start()].to_string(),
-                            matched_text: line[re_match.start()..re_match.end()].to_string(),
-                            line_after_match: line[re_match.end()..].to_string(),
-                            line_number: i,
-                            file_name: file_path.clone(),
-                            index: hits.len(),
-                        }
-                    )
+                                input_pattern: pattern.clone(),
+
+                                line_number: i + 1,
+                                file_name: file_path.clone(),
+                                relative_file_name: file_path.replace(&root.to_str().unwrap(), ""),
+                                index: hits.len(),
+                            }
+                        )
+                    }   
                 }
             }
         }
@@ -129,6 +167,8 @@ impl App {
             running: true,
             cursor: 0,
             hits: hits,
+            files: files,
+            expansion: None,
             terminal_size: Size::ZERO
         }
     }
@@ -148,7 +188,7 @@ impl App {
         match crossterm::event::read()? {
             // it's important to check KeyEventKind::Press to avoid handling key release events
             crossterm::event::Event::Key(key)
-                if key.kind == crossterm::event::KeyEventKind::Press => { self.on_key_event(key); }
+                if key.kind == crossterm::event::KeyEventKind::Press => { _ = self.on_key_event(key); }
             _ => {}
         }
         Ok(())
@@ -165,6 +205,8 @@ impl App {
             KeyCode::Up => self.move_cursor_up(),
             KeyCode::Char('t') => self.take_current_hit(),
             KeyCode::Char('s') => self.skip_current_hit(),
+            KeyCode::Char('r') => self.reset_current_hit(),
+            KeyCode::Char('e') => self.handle_expansion(),
             _ => {}
         }
         Ok(())
@@ -190,18 +232,49 @@ impl App {
     }
     
     fn take_current_hit(&mut self) {
-        let hit = self.get_current_hit();
+        let hit = self.get_current_hit_mut();
         hit.state = FarState::Take;
         self.move_cursor_down();
     }
     
     fn skip_current_hit(&mut self) {
-        let hit = self.get_current_hit();
+        let hit = self.get_current_hit_mut();
         hit.state = FarState::Skip;
         self.move_cursor_down();
     }
+    
+    fn reset_current_hit(&mut self) {
+        let hit = self.get_current_hit_mut();
+        hit.state = FarState::Undecided;
+    }
+    
+    fn handle_expansion(&mut self) {
+        if self.expansion.is_some() {
+            self.close_expansion();
+        } else {
+            self.expand_current_hit();
+        }
+    }
 
-    fn get_current_hit(&mut self) -> &mut Hit {
+    fn expand_current_hit(&mut self) {
+        let hit = self.get_current_hit();
+        self.expansion = Some(Expansion {
+            file_name: hit.file_name.clone(),
+            relative_file_name: hit.relative_file_name.clone(),
+            content: self.files.iter().find(|f| f.file_name == hit.file_name).map_or("".to_string(), |f| f.content.clone()),
+            line_number: hit.line_number,
+        });
+    }
+
+    fn close_expansion(&mut self) {
+        self.expansion = None;
+    }
+
+    fn get_current_hit_mut(&mut self) -> &mut Hit {
         self.hits.get_mut(self.cursor as usize).unwrap()
+    }
+
+    fn get_current_hit(&self) -> &Hit {
+        self.hits.get(self.cursor as usize).unwrap()
     }
 }
