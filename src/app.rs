@@ -1,16 +1,12 @@
 use ratatui::{
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers}, layout::Size, style::Stylize, text::{Line, Span}, DefaultTerminal
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers}, layout::Size, style::Stylize, symbols::line, text::{Line, Span}, DefaultTerminal
 };
 use regex::Regex;
 use walkdir::WalkDir;
 
-/// Application.
 pub struct App<'a> {
-    /// Is the application running?
     pub running: bool,
-    // Current position in buffer
     pub cursor: u8,
-    // Currently visable window
     pub hits: Vec<Hit<'a>>,
     pub terminal_size: Size,
 }
@@ -18,7 +14,7 @@ pub struct App<'a> {
 pub struct Hit<'a> {
     pub state: FarState,
     pub spans: Vec<Span<'a>>,
-    pub content: &'a str,
+    pub content: String,
     pub file_name: String,
     pub line_number: u8,
 }
@@ -28,7 +24,7 @@ impl Clone for Hit<'_> {
         Self {
             state: self.state.clone(),
             spans: self.spans.clone(),
-            content: self.content,
+            content: self.content.clone(),
             file_name: self.file_name.clone(),
             line_number: self.line_number.clone(),
         }
@@ -61,7 +57,6 @@ impl<'a> App<'a> {
     /// Constructs a new instance of [`App`].
     pub fn new(args: Vec<String>) -> Self {
         let mut hits: Vec<Hit> = Vec::new();
-        // let mut lines = buffer.lines();
 
         let mut input_patterns: Vec<InputPattern> = Vec::new();
 
@@ -98,7 +93,7 @@ impl<'a> App<'a> {
 
         // let mut results = vec![];
         for file_path in files_to_check {
-            println!("FILEPATH: {}", &file_path);
+            // println!("FILEPATH: {}", &file_path);
             let content = std::fs::read_to_string(&file_path);
             if !content.is_ok() {
                 continue; // may be a non-text file like an executable
@@ -106,27 +101,25 @@ impl<'a> App<'a> {
             let content = content.unwrap();
             // println!("CONTENT: {}", content);
 
-            let lines: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
+            for (i, line) in content.lines().enumerate() {
+                let line = line.trim();
+                if line.is_empty() {
+                    continue;
+                }
 
-            // for line in lines {
-            for i in 0..lines.len() {
-                let line: &str = lines.get(i).unwrap();
-                println!("L: {line}");
+                // println!("L: {line}");
+
                 for re_match in regex.find_iter(line) {
-                    println!("match: {}, {}",
-                        re_match.start(),
-                        re_match.end()
-                    );
+                    // println!("match: {}, {}", re_match.start(), re_match.end());
                     let mut spans: Vec<Span> = Vec::new();
-                    spans.push(Span::from(&line[..re_match.start()]).red());
-                    spans.push(Span::from(&line[re_match.start()..re_match.end()]).green());
-                    spans.push(Span::from(&line[re_match.end()..]).blue());
+                    spans.push(Span::raw(line[..re_match.start()].to_string()).red());
+                    spans.push(Span::raw(line[re_match.start()..re_match.end()].to_string()).green());
+                    spans.push(Span::raw(line[re_match.end()..].to_string()).blue());
 
-                    hits.push(
-                        Hit {
+                    hits.push(Hit {
                             state: FarState::Undecided,
-                            content: line,
-                            spans: spans,
+                            content: line.to_string(),
+                            spans,
                             line_number: i.try_into().unwrap(),
                             file_name: file_path.clone(),
                         }
@@ -134,32 +127,10 @@ impl<'a> App<'a> {
                 }
             }
         }
-
-        // for i in 0..lines.clone().count() {
-        //     let line: &str = lines.next().unwrap();
-        //     let spans: Vec<Span> = line.chars().map(|char| {
-        //         if char.eq_ignore_ascii_case(&'o') {
-        //             char.to_string().black().on_white()
-        //         } else {
-        //             char.to_string().white().on_black()
-        //         }
-        //     }).collect();
-
-        //     hits.push(
-        //         Hit {
-        //             state: FarState::Undecided,
-        //             content: line,
-        //             display: Line::from(spans.clone()),
-        //             spans: spans,
-        //             line_number: i.try_into().unwrap(),
-        //             file_name: "rust_book.txt".to_string(),
-        //         }
-        //     )
-        // }
         Self {
             running: true,
             cursor: 0,
-            hits: Vec::new(),
+            hits: hits,
             terminal_size: Size::ZERO
         }
     }
