@@ -6,13 +6,13 @@ use walkdir::WalkDir;
 
 pub struct App {
     pub running: bool,
-    pub cursor: u8,
+    pub cursor: usize,
     pub hits: Vec<Hit>,
     pub terminal_size: Size,
 }
 
 pub struct Hit {
-    pub index: u8,
+    pub index: usize,
     pub state: FarState,
 
     pub full_line: String,
@@ -21,7 +21,7 @@ pub struct Hit {
     pub line_after_match: String,
 
     pub file_name: String,
-    pub line_number: u8,
+    pub line_number: usize,
 
 }
 
@@ -48,7 +48,7 @@ impl Clone for FarState {
 }
 
 pub struct InputPattern {
-    pub key: u8,
+    pub key: usize,
     pub find_pattern: String,
     pub replace: String,
 }
@@ -89,7 +89,7 @@ impl App {
             }
         }
 
-        let regex = Regex::new(r"some").unwrap();
+        let regex = Regex::new(r"o").unwrap();
 
         // let mut results = vec![];
         for file_path in files_to_check {
@@ -117,9 +117,9 @@ impl App {
                             line_before_match: line[..re_match.start()].to_string(),
                             matched_text: line[re_match.start()..re_match.end()].to_string(),
                             line_after_match: line[re_match.end()..].to_string(),
-                            line_number: i.try_into().unwrap(),
+                            line_number: i,
                             file_name: file_path.clone(),
-                            index: hits.len().try_into().unwrap(),
+                            index: hits.len(),
                         }
                     )
                 }

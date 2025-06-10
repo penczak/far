@@ -1,13 +1,14 @@
 use ratatui::{
-    buffer::Buffer, layout::{Alignment, Rect}, style::Stylize, text::{Line, Span}, widgets::{Block, BorderType, Paragraph, Widget, Wrap}
+    buffer::Buffer, layout::{Alignment, Rect}, style::{Style, Stylize}, text::{Line, Span}, widgets::{Block, BorderType, Paragraph, Widget, Wrap}
 };
 
 use crate::app::{App, Hit};
 
-fn format_hit_to_spans<'a>(hit: &'a Hit) -> Vec<Span<'a>> {
+fn format_hit_to_spans<'a>(app: &'a App, hit: &'a Hit) -> Line<'a> {
+    // file_name.txt:15 ( ) this is my |match|ing text
     let mut spans: Vec<Span> = Vec::new();
     let mut i = 0;
-    spans.insert(i, Span::from(hit.file_name.clone()).cyan()); i += 1;
+    spans.insert(i, Span::from(hit.file_name.clone())); i += 1;
     spans.insert(i, Span::from(" ")); i += 1;
     
     let indicator = match hit.state {
@@ -15,17 +16,31 @@ fn format_hit_to_spans<'a>(hit: &'a Hit) -> Vec<Span<'a>> {
         crate::app::FarState::Take => Span::from("(t)").green(),
         crate::app::FarState::Skip => Span::from("(s)").red(),
     };
-
     spans.insert(i, Span::from(indicator)); i += 1;
-    spans
+    if hit.index != app.cursor {
+        spans.insert(i, Span::from(" ")); i += 1;
+    } else {
+        spans.insert(i, Span::from(">")); i += 1;
+    }
+    spans.insert(i, Span::from(hit.line_before_match.clone())); i += 1;
+    spans.insert(i, Span::from(hit.matched_text.clone()).black().on_white()); i += 1;
+    spans.insert(i, Span::from(hit.line_after_match.clone())); i += 1;
+
+    let mut style = Style::new();
+
+    if hit.index != app.cursor {
+        style = style.dim();
+    }
+
+    Line::from(spans).style(style)
 }
 
 impl Widget for &App {
     // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
     // - https://github.com/ratatui/ratatui/tree/master/examples
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let height: u8 = self.terminal_size.height.try_into().unwrap();
-        // let width: u8 = self.terminal_size.width.try_into().unwrap();
+        let height: usize = self.terminal_size.height.try_into().unwrap();
+        // let width: usize = self.terminal_size.width.try_into().unwrap();
 
         let block = Block::bordered()
             .title(" Find And Replace ")
@@ -38,50 +53,25 @@ impl Widget for &App {
 
         let mut paragraph_lines: Vec<Line> = Vec::new();
 
-        let top_white_space: u8 = (height / 2).saturating_sub(self.cursor);
+        let top_white_space: usize = (height / 2).saturating_sub(self.cursor);
         for _ in 0..top_white_space {
             paragraph_lines.push(Line::from("\n"));
         }
         
-        let lines_to_skip: u8 = if top_white_space > 0 { 0 } else { (self.cursor - (height / 2)).into() };
+        let lines_to_skip: usize = if top_white_space > 0 { 0 } else { self.cursor - (height / 2) };
 
         let lines_to_use = self.hits.iter()
-            .skip(lines_to_skip.into())
-            .take(height.into());
+            .skip(lines_to_skip)
+            .take(height);
 
         lines_to_use
             .for_each(|h| {
                 // let mut spans: Vec<Span> = h.spans.clone();
-                let mut spans = format_hit_to_spans(h);
+                let line = format_hit_to_spans(&self, h);
 
-                let mut line;
-
-                if h.line_number != self.cursor {
-                    spans.insert(3, Span::from(" "));
-                    line = Line::from(spans);
-                    line = line.dim();
-                } else {
-                    spans.insert(3, Span::from(">"));
-                    line = Line::from(spans);
-                }
                 paragraph_lines.push(line);
             });
 
-        // let mut lines_to_use = self.hits.iter()
-        //     .skip(lines_to_skip.into())
-        //     .take(height.into());
-
-        // for i in 0..height {
-        //     let hit = lines_to_use.next().unwrap();
-        //     let line: Line = if i == self.cursor {
-        //         hit.display.clone().red()
-        //     } else {
-        //         hit.display.clone()
-        //     };
-        //     paragraph_lines.push(line);
-        // }
-
-        // let paragraph = Paragraph::new(paragraph_text)
         let paragraph = Paragraph::new(paragraph_lines)
             .block(block)
             .wrap(Wrap {
@@ -91,22 +81,6 @@ impl Widget for &App {
             // .bg(Color::Black)
             // .centered()
             ;
-
-        // self.top_view = String::new();
-
-        
-        // let lines_to_skip: u8 = if top_white_space > 0 { 0 } else { self.cursor.into() };
-
-        // let content: String = self.buffer.lines()
-        //     .skip(lines_to_skip.into())
-        //     .take(99)
-        //     .fold(String::new(), |mut acc, line| {
-        //         acc.push_str(line);
-        //         acc.push('\n');
-        //         acc
-        //     });
-
-        // self.top_view.push_str(&content);
 
         paragraph.render(area, buf);
     }
