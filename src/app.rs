@@ -298,6 +298,7 @@ impl App {
         // group by file
         // for each file, load content
         // iterate over lines that match a line number on one of the hits
-        // set line to before + replace + after
+        // set line to before + replace + after -- this doesnt work if you have multiple hits on the same line
+        // to be cont..
     }
 }
