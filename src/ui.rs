@@ -4,9 +4,6 @@ use ratatui::{
 
 use crate::app::{App, Hit};
 
-// fn format_hit_to_spans<'a>(app: &'a App, hit: &'a Hit) -> Line<'a> {
-// }
-
 fn format_hit_to_spans<'a>(app: &'a App, hit: &'a Hit) -> Line<'a> {
     // file_name.txt:15 ( ) this is my |match|->|newvalue|ing text
     let mut spans: Vec<Span> = Vec::new();
@@ -66,8 +63,9 @@ impl Widget for &App {
             .title(" Find And Replace ")
             .title_alignment(Alignment::Center)
             .title_bottom(format!(
-                " Cursor: {} Expand: {}",
+                " Cursor: {} Backup: {} Expand: {}",
                 self.cursor,
+                self.backup_cursor,
                 self.expansion.is_some(),
             ))
             .border_type(BorderType::Plain);
@@ -75,19 +73,30 @@ impl Widget for &App {
         let mut paragraph_lines: Vec<Line> = Vec::new();
 
         let top_white_space: usize = (height / 2).saturating_sub(self.cursor);
+        
         for _ in 0..top_white_space {
             paragraph_lines.push(Line::from("\n"));
         }
-        
+
         let lines_to_skip: usize = if top_white_space > 0 { 0 } else { self.cursor - (height / 2) };
 
-
-        // this part needs to change if expansion is active
         if self.expansion.is_some() {
-            // if expansion is active, we need to skip the lines before the cursor
-            // and only show the lines after the cursor
-            // this is a temporary solution, we will need to handle expansion properly later
-            // for now, we just skip the lines before the cursor
+            let expansion = self.expansion.clone().unwrap();
+            let lines_to_use = expansion.content.lines()
+                .skip(lines_to_skip)
+                .take(height);
+    
+            for (i, str) in lines_to_use.enumerate() {
+                let mut spans: Vec<Span> = Vec::new();
+                spans.push(Span::from(expansion.relative_file_name.clone()));
+                spans.push(Span::from(":"));
+                spans.push(Span::from((i + lines_to_skip).to_string()));
+                spans.push(Span::from(" "));
+                spans.push(Span::from(str.to_string().clone()));
+                let line = Line::from(spans);
+
+                paragraph_lines.push(line);
+            }
         } else {
             let lines_to_use = self.hits.iter()
                 .skip(lines_to_skip)
@@ -112,6 +121,7 @@ impl Widget for &App {
             // .centered()
             ;
 
+        // Clear::render(Clear::default(), area, buf);
         paragraph.render(area, buf);
     }
 }

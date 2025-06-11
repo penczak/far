@@ -7,6 +7,7 @@ use walkdir::WalkDir;
 pub struct App {
     pub running: bool,
     pub cursor: usize,
+    pub backup_cursor: usize,
     pub hits: Vec<Hit>,
     pub files: Vec<FarFile>,
     pub terminal_size: Size,
@@ -17,7 +18,12 @@ pub struct Expansion {
     pub file_name: String,
     pub relative_file_name: String,
     pub content: String,
-    pub line_number: usize,
+}
+
+impl Clone for Expansion {
+    fn clone(&self) -> Self {
+        Self { file_name: self.file_name.clone(), relative_file_name: self.relative_file_name.clone(), content: self.content.clone() }
+    }
 }
 
 pub struct FarFile {
@@ -166,6 +172,7 @@ impl App {
         Self {
             running: true,
             cursor: 0,
+            backup_cursor: 0,
             hits: hits,
             files: files,
             expansion: None,
@@ -178,6 +185,10 @@ impl App {
         self.terminal_size = terminal.size().unwrap();
 
         while self.running {
+            // if self.needs_clear {
+            //     terminal.draw(|frame| frame.render_widget(Clear, frame.area()))?;
+            //     self.needs_clear = false;
+            // }
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
             self.handle_events()?;
         }
@@ -207,6 +218,7 @@ impl App {
             KeyCode::Char('s') => self.skip_current_hit(),
             KeyCode::Char('r') => self.reset_current_hit(),
             KeyCode::Char('e') => self.handle_expansion(),
+            KeyCode::Enter => self.apply_changes(),
             _ => {}
         }
         Ok(())
@@ -250,9 +262,13 @@ impl App {
     
     fn handle_expansion(&mut self) {
         if self.expansion.is_some() {
+            self.cursor = self.backup_cursor;
+            self.backup_cursor = 0;
             self.close_expansion();
         } else {
+            self.backup_cursor = self.cursor;
             self.expand_current_hit();
+            self.cursor = self.get_current_hit().line_number;
         }
     }
 
@@ -262,7 +278,6 @@ impl App {
             file_name: hit.file_name.clone(),
             relative_file_name: hit.relative_file_name.clone(),
             content: self.files.iter().find(|f| f.file_name == hit.file_name).map_or("".to_string(), |f| f.content.clone()),
-            line_number: hit.line_number,
         });
     }
 
@@ -276,5 +291,13 @@ impl App {
 
     fn get_current_hit(&self) -> &Hit {
         self.hits.get(self.cursor as usize).unwrap()
+    }
+
+    fn apply_changes(&self) {
+        // get all hits that are taken
+        // group by file
+        // for each file, load content
+        // iterate over lines that match a line number on one of the hits
+        // set line to before + replace + after
     }
 }

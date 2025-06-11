@@ -34,3 +34,5 @@ display list of hits
 -if you scroll past some hits and leave then undecided, have a command to toggle to sort display hits with all undecided at the bottom (and toggle back to original order) 
 
 -beforing applying any changes, make sure files havent been written to since starting session
+
+-replace all unwrap()s with proper error handling
